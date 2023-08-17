@@ -9,8 +9,8 @@ from math import floor
 from scipy.ndimage.interpolation import zoom, rotate
 
 import imageio
-import face_recognition
-
+# import face_recognition
+import dlib
 
 ## Face extraction
 
@@ -46,7 +46,8 @@ class FaceFinder(Video):
         self.frame_shape = self.last_frame.shape[:2]
         self.last_location = (0, 200, 200, 0)
         if (load_first_face):
-            face_positions = face_recognition.face_locations(self.last_frame, number_of_times_to_upsample=2)
+            # face_positions = face_recognition.face_locations(self.last_frame, number_of_times_to_upsample=2)
+            face_positions = dlib.face_recognition_model_v1(self.last_frame, number_of_times_to_upsample=2)
             if len(face_positions) > 0:
                 self.last_location = face_positions[0]
     
