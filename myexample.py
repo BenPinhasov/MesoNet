@@ -1,11 +1,16 @@
+from math import floor
+
+import keras
 import numpy as np
 from classifiers import Meso4
 # from pipeline import *
 import cv2
 import dlib
-from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array
+from tensorflow.keras.preprocessing.image import NumpyArrayIterator, img_to_array
+from tensorflow.keras import layers
 from sklearn.preprocessing import normalize
 import tensorflow as tf
+import torch.nn as nn
 
 
 def get_boundingbox(face, width, height, scale=1.3, minsize=None):
@@ -42,27 +47,17 @@ def get_boundingbox(face, width, height, scale=1.3, minsize=None):
 classifier = Meso4()
 classifier.load('weights/Meso4_DF.h5')
 
-# 2 - Minimial image generator
-# We did use it to read and compute the prediction by batchs on test videos
-# but do as you please, the models were trained on 256x256 images in [0,1]^(n*n)
-
-# dataGenerator = ImageDataGenerator(rescale=1./255)
-# generator = dataGenerator.flow_from_directory(
-#         'test_images',
-#         target_size=(256, 256),
-#         batch_size=1,
-#         class_mode='binary',
-#         subset='training')
-#
-# # 3 - Predict
-# X, y = generator.next()
-video_path = 'test_images/real/000.mp4'
+video_path = r'F:\original_sequences\youtube\c23\videos\033.mp4'
 reader = cv2.VideoCapture(video_path)
+classification_list = []
+real_list = []
+fake_list = []
 while reader.isOpened():
     _, image = reader.read()
     if image is None:
         break
     height, width = image.shape[:2]
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     face_detector = dlib.get_frontal_face_detector()
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -71,30 +66,34 @@ while reader.isOpened():
     if len(faces):
         # For now only take biggest face
         face = faces[0]
-
-        # --- Prediction ---------------------------------------------------
         # Face crop with dlib and bounding box scale enlargement
         x, y, size = get_boundingbox(face, width, height)
         cropped_face = image[y:y + size, x:x + size]
         # resize to 256, 256
         cropped_face = cv2.resize(cropped_face, (256, 256))
-        cropped_face = cv2.cvtColor(cropped_face, cv2.COLOR_BGR2RGB)
-        # Convert to numpy array
-        img = img_to_array(cropped_face)
-
-        # Normalize image
-        mean = [0.5, 0.5, 0.5]
-        std = [0.5, 0.5, 0.5]
-        img = (img - mean) / std
-
+        preprocess = keras.Sequential(
+            [
+                layers.Resizing(256, 256),
+                layers.Rescaling(1. / 255),
+            ]
+        )
+        # cropped_face = cv2.cvtColor(cropped_face, cv2.COLOR_BGR2RGB)
+        # scaled_data = cropped_face / 255.0
         # Permute dimensions from HWC to CHW
         # img = img.transpose(2, 0, 1)
-
+        img = preprocess(cropped_face)
         # Convert to tensor
-
-        img = tf.convert_to_tensor(img)
 
         # Add batch dimension
         img = tf.expand_dims(img, 0)
         classification = classifier.predict(img)
-        print('Predicted :', classification, '\nReal class :', 0)
+        # classification = round(classification[0, 0])
+        real_pred = classification[0, 0]
+        fake_pred = 1 - real_pred
+        pred = [real_pred, fake_pred]
+        classification_list.append(pred)
+        real_list.append(real_pred)
+        fake_list.append(fake_pred)
+        print('Predicted :', 'real' if pred[0] > pred[1] else 'fake', '\nReal class :', 'real')
+print('finished')
+pass
