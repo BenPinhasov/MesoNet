@@ -134,7 +134,7 @@ while reader.isOpened():
         img = img.permute((1, 2, 0)).contiguous()
         img = img.unsqueeze(0)
         # img = tf.expand_dims(img, 0)
-        classification = pytorch_model(img)
+        classification = pytorch_model.cuda()(img.cuda())
         # classification = round(classification[0, 0])
         real_pred = classification[0][0].item()
         fake_pred = 1 - real_pred
